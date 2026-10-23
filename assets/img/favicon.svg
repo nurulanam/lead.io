@@ -1,5 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Lead.io">
-  <rect width="64" height="64" rx="15" fill="#0B0C0D"/>
-  <circle cx="47" cy="18" r="4.5" fill="#D8FF4F"/>
-  <text x="19" y="47" font-family="Georgia, 'Times New Roman', serif" font-size="40" font-style="italic" fill="#F5F2EC" text-anchor="middle">l</text>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="#0B0C0D"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="15.25" fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="1.5"/>
+  <!-- Roofline: the threshold of a home -->
+  <path d="M17.5 30.5L32 16.5L46.5 30.5" fill="none" stroke="#F5F2EC" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- The L of Lead.io, set as the doorway -->
+  <path d="M27.5 32.5V44.5H41.5" fill="none" stroke="#F5F2EC" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Beacon node: the ".io" -->
+  <circle cx="46" cy="15" r="5.4" fill="#D8FF4F"/>
 </svg>

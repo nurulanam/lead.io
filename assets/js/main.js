@@ -458,6 +458,201 @@
   });
 
   /* ------------------------------------------------------------------
+     Custom select — a styled listbox that keeps the native <select>
+     as the source of truth for form submission and validation.
+  ------------------------------------------------------------------ */
+  var selects = $$("[data-select]");
+
+  selects.forEach(function (wrap) {
+    var native = $("[data-select-native]", wrap);
+    var trigger = $("[data-select-trigger]", wrap);
+    var menu = $("[data-select-menu]", wrap);
+    var list = $("[data-select-list]", wrap);
+    var valueEl = $("[data-select-value]", wrap);
+    if (!native || !trigger || !menu || !list || !valueEl) return;
+
+    var options = Array.prototype.slice.call(native.options);
+    var activeIndex = 0;
+    var isOpen = false;
+
+    // Hand over from the native control to the styled listbox.
+    wrap.classList.add("is-custom");
+
+    var listId = list.id || "select-list-" + Math.random().toString(36).slice(2, 8);
+    list.id = listId;
+    trigger.setAttribute("aria-controls", listId);
+
+    // Build the visible option list from the native select.
+    options.forEach(function (option, index) {
+      var item = document.createElement("li");
+      item.className = "select-option";
+      item.id = listId + "-opt-" + index;
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", "false");
+      item.dataset.index = String(index);
+      item.textContent = option.textContent;
+
+      if (option.disabled) {
+        item.classList.add("is-disabled");
+        item.setAttribute("aria-disabled", "true");
+      }
+
+      var check = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      check.setAttribute("class", "icon");
+      check.setAttribute("aria-hidden", "true");
+      check.setAttribute("viewBox", "0 0 24 24");
+      var use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      use.setAttribute("href", "#i-check");
+      check.appendChild(use);
+      item.appendChild(check);
+
+      list.appendChild(item);
+    });
+
+    var items = Array.prototype.slice.call(list.children);
+
+    function selectedIndex() {
+      var idx = native.selectedIndex;
+      return idx >= 0 ? idx : 0;
+    }
+
+    function syncFromNative() {
+      var index = selectedIndex();
+      activeIndex = index;
+      var option = options[index];
+      valueEl.textContent = option ? option.textContent : "";
+      valueEl.classList.toggle("is-placeholder", !option || option.value === "");
+      items.forEach(function (item, i) {
+        var isSelected = i === index && options[i] && !options[i].disabled;
+        item.classList.toggle("is-selected", isSelected);
+        item.setAttribute("aria-selected", isSelected ? "true" : "false");
+      });
+    }
+
+    function setActive(index) {
+      if (!items.length) return;
+      activeIndex = (index + items.length) % items.length;
+      items.forEach(function (item, i) {
+        item.classList.toggle("is-active", i === activeIndex);
+      });
+      var active = items[activeIndex];
+      if (active) {
+        trigger.setAttribute("aria-activedescendant", active.id);
+        if (active.scrollIntoView) active.scrollIntoView({ block: "nearest" });
+      }
+    }
+
+    function positionMenu() {
+      menu.classList.remove("is-up");
+      var rect = trigger.getBoundingClientRect();
+      var spaceBelow = window.innerHeight - rect.bottom;
+      var estimated = Math.min(menu.scrollHeight || 280, 300);
+      if (spaceBelow < estimated + 24 && rect.top > spaceBelow) {
+        menu.classList.add("is-up");
+      }
+    }
+
+    function openMenu() {
+      if (isOpen) return;
+      isOpen = true;
+      menu.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+      positionMenu();
+      setActive(selectedIndex());
+    }
+
+    function closeMenu(focusTrigger) {
+      if (!isOpen) return;
+      isOpen = false;
+      menu.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.removeAttribute("aria-activedescendant");
+      items.forEach(function (item) { item.classList.remove("is-active"); });
+      if (focusTrigger) trigger.focus();
+    }
+
+    function commit(index) {
+      var option = options[index];
+      if (!option) return;
+      native.selectedIndex = index;
+      native.dispatchEvent(new Event("change", { bubbles: true }));
+      syncFromNative();
+      closeMenu(true);
+    }
+
+    trigger.addEventListener("click", function (event) {
+      event.preventDefault();
+      if (isOpen) {
+        closeMenu(false);
+      } else {
+        openMenu();
+      }
+    });
+
+    trigger.addEventListener("keydown", function (event) {
+      var key = event.key;
+
+      if (!isOpen) {
+        if (key === "ArrowDown" || key === "ArrowUp" || key === "Enter" || key === " " || key === "Spacebar") {
+          event.preventDefault();
+          openMenu();
+          if (key === "ArrowUp") setActive(activeIndex - 1);
+        }
+        return;
+      }
+
+      if (key === "ArrowDown") {
+        event.preventDefault();
+        setActive(activeIndex + 1);
+      } else if (key === "ArrowUp") {
+        event.preventDefault();
+        setActive(activeIndex - 1);
+      } else if (key === "Home") {
+        event.preventDefault();
+        setActive(0);
+      } else if (key === "End") {
+        event.preventDefault();
+        setActive(items.length - 1);
+      } else if (key === "Enter" || key === " " || key === "Spacebar") {
+        event.preventDefault();
+        commit(activeIndex);
+      } else if (key === "Escape") {
+        event.preventDefault();
+        closeMenu(true);
+      } else if (key === "Tab") {
+        closeMenu(false);
+      }
+    });
+
+    list.addEventListener("click", function (event) {
+      var option = event.target.closest(".select-option");
+      if (!option || option.classList.contains("is-disabled")) return;
+      event.preventDefault();
+      commit(parseInt(option.dataset.index, 10));
+    });
+
+    list.addEventListener("mousemove", function (event) {
+      var option = event.target.closest(".select-option");
+      if (!option || option.classList.contains("is-disabled")) return;
+      setActive(parseInt(option.dataset.index, 10));
+    });
+
+    document.addEventListener("click", function (event) {
+      if (!isOpen) return;
+      if (wrap.contains(event.target)) return;
+      closeMenu(false);
+    });
+
+    window.addEventListener("resize", function () {
+      if (isOpen) positionMenu();
+    });
+
+    native.addEventListener("change", syncFromNative);
+
+    syncFromNative();
+  });
+
+  /* ------------------------------------------------------------------
      Contact form
   ------------------------------------------------------------------ */
   var contactForm = $("[data-contact-form]");
@@ -493,6 +688,7 @@
     var errors = 0;
 
     function check(field, condition, message) {
+      if (!field) return;
       var valid = condition;
       setError(field, valid ? "" : message);
       if (!valid) {
@@ -510,7 +706,7 @@
     );
     check(interest, Boolean(interest.value), "Choose what you need help with.");
 
-    if (consentError) {
+    if (consentError && consent) {
       var consentOk = consent.checked;
       consentError.textContent = consentOk ? "" : "Please agree to be contacted so we can reply.";
       consent.setAttribute("aria-invalid", consentOk ? "false" : "true");
@@ -549,7 +745,17 @@
       var result = validateContactForm();
 
       if (!result.valid) {
-        if (result.firstInvalid) result.firstInvalid.focus();
+        if (result.firstInvalid) {
+          // Focus the visible trigger when the invalid field is a custom select.
+          if (result.firstInvalid.hasAttribute("data-select-native")) {
+            var selectWrap = result.firstInvalid.closest("[data-select]");
+            var selectTrigger = selectWrap ? $("[data-select-trigger]", selectWrap) : null;
+            if (selectTrigger) selectTrigger.focus();
+            else result.firstInvalid.focus();
+          } else {
+            result.firstInvalid.focus();
+          }
+        }
         return;
       }
 
