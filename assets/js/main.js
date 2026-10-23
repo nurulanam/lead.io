@@ -478,9 +478,22 @@
     // Hand over from the native control to the styled listbox.
     wrap.classList.add("is-custom");
 
+    // The native select keeps holding the form value, but it must not stay in
+    // the tab order or the accessibility tree once the styled listbox takes
+    // over — otherwise keyboard users tab into an invisible control that
+    // opens the browser's own dropdown, and screen readers announce two
+    // overlapping comboboxes.
+    native.setAttribute("tabindex", "-1");
+    native.setAttribute("aria-hidden", "true");
+
     var listId = list.id || "select-list-" + Math.random().toString(36).slice(2, 8);
     list.id = listId;
     trigger.setAttribute("aria-controls", listId);
+
+    // ARIA 1.2 select-only combobox: the trigger owns the popup and keeps
+    // focus while aria-activedescendant points at the active option.
+    trigger.setAttribute("role", "combobox");
+    trigger.setAttribute("aria-haspopup", "listbox");
 
     // Build the visible option list from the native select.
     options.forEach(function (option, index) {
